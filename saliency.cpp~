@@ -1,0 +1,82 @@
+/* saliency.cpp - Saliency heuristics
+ * (c) 2014-2015 The Grid
+ *
+ */
+
+#include <cstring>
+#include <cstdio>
+#include <iostream>
+#include <string>
+#include <vector>
+#include "Saliency/GMRsaliency.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+// #define DEBUG
+#undef DEBUG
+
+using namespace std;
+
+RNG rng(12345);
+
+Mat DrawHistogram(Mat gray) {
+  int histSize = 256;    // bin size
+  float range[] = { 0, 255 };
+  const float *ranges[] = { range };
+  MatND hist;
+
+  calcHist( &gray, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false );
+
+  int hist_w = 512; int hist_h = 400;
+  int bin_w = cvRound( (double) hist_w/histSize );
+
+  Mat histImage( hist_h, hist_w, CV_8UC1, Scalar( 0,0,0) );
+  normalize(hist, hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
+
+  for( int i = 1; i < histSize; i++){
+    line( histImage, Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
+        Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
+        Scalar( 255, 0, 0), 2, 8, 0  );
+  }
+  return histImage;
+}
+
+static void display_help(string program_name) {
+  cerr << "Usage: " << program_name << " <original image>" << endl;
+}
+
+int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    display_help(argv[0]);
+    return 1;
+  }
+
+	char original_image_path[256];
+	strcpy(original_image_path, argv[1]);
+
+  Mat original_image;
+  original_image = imread(original_image_path, CV_LOAD_IMAGE_COLOR);
+
+  // Return null saliency if fails opening the image file
+  if (original_image.empty()) {
+    original_image = imread(original_image_path, CV_LOAD_IMAGE_COLOR);
+    if (original_image.empty()) {
+      cout << "{\"saliency\": null}" << endl;
+      return 0;
+    }
+  }
+
+	GMRsaliency GMRsal;
+  Mat saliency_map;
+	saliency_map = GMRsal.GetSal(original_image);
+	
+	
+    namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
+    imshow( "Display window", saliency_map );                   // Show our image inside it.
+
+    waitKey(0);          
+	
+ 
+
+	return 0;
+}
